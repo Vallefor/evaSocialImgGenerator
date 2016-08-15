@@ -4,7 +4,8 @@
  * Author:  Lipovtsev Dmitry (Vallefor)
  * Email:   madsorcerer@gmail.com
  * Version: 1.0
- * 
+ * License: Creative Commons Attribution NonCommercial (CC-BY-NC)
+ *
  * Date: 15.07.16
  * Time: 15:04
  */
