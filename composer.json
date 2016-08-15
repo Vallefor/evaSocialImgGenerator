@@ -14,8 +14,8 @@
         "php": "^5.4"
     },
     "autoload": {
-        "psr-0": {
-            "imgGenerator": "src/"
-        }
+        "classmap": [
+            "src/evaSocialImgGenerator.php"
+        ]
     }
 }

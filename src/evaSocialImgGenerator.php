@@ -1,9 +1,9 @@
 <?php
 /**
- * 
+ *
  * Author:  Lipovtsev Dmitry (Vallefor)
  * Email:   madsorcerer@gmail.com
- * Version: 1.0
+ * Version: 1.0.2
  * License: Creative Commons Attribution NonCommercial (CC-BY-NC)
  *
  * Date: 15.07.16
@@ -157,13 +157,21 @@ class imgGenerator
 	function resizeAndCrop(&$im,$width,$height,$position=imgGenerator::position_center_center)
 	{
 		$oldGeometry=$im->getImageGeometry();
+
 		$max=max($this->opts["resize_and_crop"]["width"],$this->opts["resize_and_crop"]["height"]);
+		//$max=max($oldGeometry["width"],$oldGeometry["height"]);
 
 		if($max==$this->opts["resize_and_crop"]["width"]) {
 			$otn=$oldGeometry["height"]/$oldGeometry["width"];
 			$width=$max;
 			$height=$max*$otn;
-			$x=0;
+			if($height-$this->opts["resize_and_crop"]["height"] < 0) {
+				$height=$this->opts["resize_and_crop"]["height"];
+				$width=$height/$otn;
+				$x=($width-$this->opts["resize_and_crop"]["width"])/2;
+			} else {
+				$x = 0;
+			}
 			if($position==imgGenerator::position_center_center) {
 				$y=($height-$this->opts["resize_and_crop"]["height"])/2;
 			}
@@ -171,13 +179,21 @@ class imgGenerator
 			$otn=$oldGeometry["width"]/$oldGeometry["height"];
 			$height=$max;
 			$width=$max*$otn;
-			$y=0;
+			if($width-$this->opts["resize_and_crop"]["width"] < 0) {
+				$width=$this->opts["resize_and_crop"]["width"];
+				$height=$width/$otn;
+				$y=($width-$this->opts["resize_and_crop"]["height"])/2;
+			} else {
+				$y = 0;
+			}
 			if($position==imgGenerator::position_center_center) {
 				$x=($width-$this->opts["resize_and_crop"]["width"])/2;
 			}
 		}
 
 		$im->resizeImage($width,$height,\Imagick::FILTER_LANCZOS,1,false);
+		/*print_r(array($this->opts["resize_and_crop"]["width"],$this->opts["resize_and_crop"]["height"],$x,$y));
+		die();*/
 		$im->cropimage($this->opts["resize_and_crop"]["width"],$this->opts["resize_and_crop"]["height"],$x,$y);
 	}
 	function parseSize()
@@ -246,7 +262,7 @@ class imgGenerator
 				$padding["bottom"] = $this->opts["big_text"]["padding"][2];
 				$padding["left"] = $this->opts["big_text"]["padding"][3];
 			}
-			
+
 			/*
 			$padding["left"] = $this->opts["big_text"]["padding"];
 			$padding["top"] = $this->opts["big_text"]["padding"];
@@ -381,7 +397,7 @@ class imgGenerator
 				$y = ($geometry["height"] - $textGeometry["height"]) / 2;
 			}
 
-			
+
 			$this->im->compositeimage($textImage,\Imagick::COMPOSITE_DEFAULT,$x,$y);
 			//die();
 		}
@@ -531,4 +547,3 @@ class imgGenerator
 		return str_replace($_SERVER["DOCUMENT_ROOT"],"",$file);
 	}
 }
-?>
