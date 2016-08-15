@@ -1,0 +1,21 @@
+{
+    "name": "vallefor/eva-social-img-generator",
+    "description": "Generate a beautiful images for social networks",
+    "license": "CC-BY-NC",
+    "keywords": ["imagick", "social networks"],
+    "authors": [
+          {
+              "name": "Lipovtsev Dmitry",
+              "email": "madsorcerer@gmail.com",
+              "homepage": "https://github.com/vallefor"
+          }
+    ],
+    "require": {
+        "php": "^5.4"
+    },
+    "autoload": {
+        "psr-0": {
+            "imgGenerator": "src/"
+        }
+    }
+}
