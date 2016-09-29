@@ -12,11 +12,17 @@
 <?php 
 
     use Eva\Social\imgGenerator as imgGenerator;
+    use Eva\Social\imgTextGenerator as imgTextGenerator;
+
+	$textGenerator = new imgTextGenerator();
+	$text=$textGenerator
+		->seTextShadow("#000000", 75, 1, 2, 2)
+		->setText("Направление деятельности АО «МОСГАЗ»","#ffffff",imgGenerator::position_left_bottom,"auto",'5%')
+		->setFont($_SERVER["DOCUMENT_ROOT"]."/upload/fonts/fonts2_7/hinted-PTF55F.ttf");
 
 	$generator = new imgGenerator();
-	$generator->setBigText("Направление деятельности АО «МОСГАЗ»","#ffffff",imgGenerator::position_left_bottom,"auto",'5%')
-		->setBigTextShadow("#000000", 75, 1, 2, 2)
-		->setBigTextFont("Magistral-Bold")
+	$generator
+		->addText($text)
 		->addOverlay($_GET["opacity"]?$_GET["opacity"]:0.5, "#999900")
 		->setLogo($_SERVER["DOCUMENT_ROOT"] . "/images/logo.png", imgGenerator::position_left_top, "5%",'auto')
 		->fromImg($_SERVER["DOCUMENT_ROOT"] . "/images/background.jpeg")
@@ -27,7 +33,7 @@
 ?>
 ```
 
-## imgGenerator::setBigText
+## imgTextGenerator::setText
 
 Используется для установки текста. Имеет следующие параметры:
 
@@ -40,7 +46,7 @@
     * 1/10, 1/5, 1/7 и т.д., то есть размер текста будет выстраиваться относительно высоты сгенерированной картинки
 5. Отступы - можно указать как целое значение, так и в процентах. Можно задать каждый отступ отдельно, для этого передайте массив: array(top, right, bottom, left)
 
-## imgGenerator::setBigTextShadow
+## imgTextGenerator::setTextShadow
 
 Устанавливает тень под текстом
 
@@ -52,9 +58,15 @@
 4. Координата X
 5. Координата Y
 
-## imgGenerator::setBigTextFont
+## imgTextGenerator::setFont
 
 Устанавливает шрифт текста. Допускается как указать название шрифта (имейте ввиду, что данный шрифт должен быть установлен в системе), так и путь к шрифтовому файлу.
+
+## imgTextGenerator::setBackground
+
+Устанавливает фон под текстом. Имеет следующие параметры:
+1. Цвет, допускается использование HEX, RGB, RGBA и другие типы цветов, которые поддерживаются Imagick'ом.
+2. Отступ - можно указать как целое значение, так и в процентах. Можно задать каждый отступ отдельно, для этого передайте массив: array(top, right, bottom, left)
 
 ## imgGenerator::addOverlay
 
