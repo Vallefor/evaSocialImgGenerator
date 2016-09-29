@@ -23,7 +23,7 @@
 	$generator = new imgGenerator();
 	$generator
 		->addText($text)
-		->addOverlay($_GET["opacity"]?$_GET["opacity"]:0.5, "#999900")
+		->addOverlay(0.5, "#999900")
 		->setLogo($_SERVER["DOCUMENT_ROOT"] . "/images/logo.png", imgGenerator::position_left_top, "5%",'auto')
 		->fromImg($_SERVER["DOCUMENT_ROOT"] . "/images/background.jpeg")
 		->resizeFor("autodetect")
