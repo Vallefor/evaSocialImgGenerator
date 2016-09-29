@@ -16,7 +16,7 @@
     "autoload": {
         "classmap": [
             "src/evaSocialImgGenerator.php",
-            "src/evaSocialImgTextGenerator.php",
+            "src/evaSocialImgTextGenerator.php"
         ]
     }
 }
