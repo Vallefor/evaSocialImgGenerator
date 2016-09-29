@@ -54,6 +54,16 @@ class imgGenerator
 		}
 		return $type;
 	}
+	function withoutCrop($colorOrFile,$paddings=0)
+	{
+		if(is_file($colorOrFile)) {
+			$this->opts["without_crop"]["file"]=$colorOrFile;
+		} else {
+			$this->opts["without_crop"]["color"]=$colorOrFile;
+		}
+		$this->opts["without_crop"]["paddings"]=$paddings;
+		return $this;
+	}
 	function resizeFor($type)
 	{
 		if($type=="autodetect") {
@@ -74,48 +84,6 @@ class imgGenerator
 		if($type=="ok") {
 			$this->opts["resize_and_crop"]=array("width"=>780,"height"=>585);
 		}
-		return $this;
-	}
-	function setBigTextFont($font)
-	{
-		$this->opts["big_text_font"]=$font;
-		return $this;
-	}
-
-	/**
-	 * Добавляет текст на картинку.
-	 *
-	 *
-	 * @param $str
-	 * @param string $color
-	 * @param int $position
-	 * @param int $fontSize
-	 * @param int $padding
-	 * @param int $style
-	 * @param int $weight
-	 * @return $this
-	 */
-	function setBigText($str, $color="#ffffff", $position=imgGenerator::position_center_center, $fontSize=50, $padding=20, $style=\Imagick::STYLE_NORMAL, $weight=300)
-	{
-		$this->opts["big_text"]=array(
-			"text"=>$str,
-			"color"=>$color,
-			"position"=>$position,
-			"font_size"=>$fontSize,
-			"padding"=>$padding,
-			"style"=>$style,
-			"weight"=>$weight,
-		);
-		return $this;
-	}
-	function setBigTextShadow($color="#000000",$opacity=75,$sigma=5,$x=5,$y=5)
-	{
-		$this->opts["big_text_shadow"]=array("color"=>$color,"opacity"=>$opacity,"sigma"=>$sigma,"x"=>$x,"y"=>$y);
-		return $this;
-	}
-	function setSmallText($str,$color="#ffffff")
-	{
-		$this->opts["small_text"]=array("text"=>$str,"color"=>$color);
 		return $this;
 	}
 	function addBlackOverlay()
@@ -199,7 +167,18 @@ class imgGenerator
 	function parseSize()
 	{
 		if($this->opts["resize_and_crop"]) {
-			$this->resizeAndCrop($this->im,$this->opts["resize_and_crop"]["width"],$this->opts["resize_and_crop"]["height"]);
+			if($this->opts["without_crop"]) {
+				$bgImage=new \Imagick();
+				$bgImage->newImage($this->opts["resize_and_crop"]["width"], $this->opts["resize_and_crop"]["height"],$this->opts["without_crop"]["color"]);
+				$this->im->resizeImage($this->opts["resize_and_crop"]["width"], $this->opts["resize_and_crop"]["height"],\Imagick::FILTER_LANCZOS,1,true);
+				$geometry=$this->im->getImageGeometry();
+				$x=intval(($this->opts["resize_and_crop"]["width"]-$geometry["width"])/2);
+				$y=intval(($this->opts["resize_and_crop"]["height"]-$geometry["height"])/2);
+				$bgImage->compositeImage($this->im, \Imagick::COMPOSITE_OVER, $x ,$y);
+				$this->im=$bgImage;
+			} else {
+				$this->resizeAndCrop($this->im, $this->opts["resize_and_crop"]["width"], $this->opts["resize_and_crop"]["height"]);
+			}
 		}
 	}
 	function parseOverlay()
@@ -217,189 +196,13 @@ class imgGenerator
 			$this->im->compositeimage($overlay,\Imagick::COMPOSITE_DEFAULT,0,0);
 		}
 	}
-	function splitToLines($draw,$text,$maxWidth)
-	{
-		$ex=explode(" ",$text);
-		$checkLine="";
-		$textImage=new \Imagick();
-		foreach ($ex as $val) {
-			if($checkLine) {
-				$checkLine.=" ";
-			}
-			$checkLine.=$val;
-			$metrics=$textImage->queryFontMetrics($draw, $checkLine);
-			if($metrics["textWidth"]>$maxWidth) {
-				$checkLine=preg_replace('/\s(?=\S*$)/',"\n",$checkLine);
-			}
-		}
-		return $checkLine;
-	}
 	function parseText()
 	{
-		if($this->opts["big_text"] || $this->opts["small_text"]) {
-			$geometry=$this->im->getImageGeometry();
-
-			if(!is_array($this->opts["big_text"]["padding"])) {
-				if (strpos($this->opts["big_text"]["padding"], "%")) {
-					$mult = intval($this->opts["big_text"]["padding"]) / 100;
-					$this->opts["big_text"]["padding"] = intval($geometry["width"] * $mult);
-				}
-
-				$padding["left"] = $this->opts["big_text"]["padding"];
-				$padding["top"] = $this->opts["big_text"]["padding"];
-				$padding["right"] = $this->opts["big_text"]["padding"];
-				$padding["bottom"] = $this->opts["big_text"]["padding"];
-			} else {
-				foreach($this->opts["big_text"]["padding"] as &$val) {
-					if (strpos($val, "%")) {
-						$mult = intval($val) / 100;
-						$val = intval($geometry["width"] * $mult);
-					}
-				}
-				unset($val);
-				$padding["top"] = $this->opts["big_text"]["padding"][0];
-				$padding["right"] = $this->opts["big_text"]["padding"][1];
-				$padding["bottom"] = $this->opts["big_text"]["padding"][2];
-				$padding["left"] = $this->opts["big_text"]["padding"][3];
+		if($this->opts["text"]) {
+			/** @var imgTextGenerator $textOb */
+			foreach($this->opts["text"] as $textOb) {
+				$textOb->compositeTextTo($this->im);
 			}
-
-			/*
-			$padding["left"] = $this->opts["big_text"]["padding"];
-			$padding["top"] = $this->opts["big_text"]["padding"];
-			$padding["right"] = $this->opts["big_text"]["padding"];
-			$padding["bottom"] = $this->opts["big_text"]["padding"];
-			*/
-
-			$draw=new \ImagickDraw();
-			$draw->setFont($this->opts["big_text_font"]?$this->opts["big_text_font"]:'Arial');
-
-			if($this->opts["big_text"]["font_size"]=="auto") {
-				$fs=intval($geometry["height"]/10);
-			} else {
-				if(strpos($this->opts["big_text"]["font_size"],"1/")===0) {
-					$fs=intval(str_replace("1/","",$this->opts["big_text"]["font_size"]));
-					$fs=intval($geometry["height"]/$fs);
-				} else {
-					$fs = $this->opts["big_text"]["font_size"];
-				}
-			}
-			$draw->setFontSize($fs);
-
-			$draw->setFillColor(new \ImagickPixel($this->opts["big_text"]["color"]));
-			$draw->setStrokeAntialias(true);
-			$draw->setTextAntialias(true);
-			$this->opts["big_text"]["text"]=$this->splitToLines($draw,$this->opts["big_text"]["text"],$geometry["width"]-$padding["left"]-$padding["right"]);
-
-			if(
-				$this->opts["big_text"]["position"]==imgGenerator::position_left_top
-				||
-				$this->opts["big_text"]["position"]==imgGenerator::position_left_center
-				||
-				$this->opts["big_text"]["position"]==imgGenerator::position_left_bottom
-			) {
-				$draw->setTextAlignment(\Imagick::ALIGN_LEFT);
-			}
-			if(
-				$this->opts["big_text"]["position"]==imgGenerator::position_right_top
-				||
-				$this->opts["big_text"]["position"]==imgGenerator::position_right_center
-				||
-				$this->opts["big_text"]["position"]==imgGenerator::position_right_bottom
-			) {
-				$draw->setTextAlignment(\Imagick::ALIGN_RIGHT);
-			}
-			if(
-				$this->opts["big_text"]["position"]==imgGenerator::position_center_center
-				||
-				$this->opts["big_text"]["position"]==imgGenerator::position_center_top
-				||
-				$this->opts["big_text"]["position"]==imgGenerator::position_center_bottom
-				||
-				$this->opts["big_text"]["position"]==imgGenerator::position_center_center
-			) {
-				$draw->setTextAlignment(\Imagick::ALIGN_CENTER);
-			}
-
-
-			//$draw->setGravity(\Imagick::GRAVITY_WEST);
-
-
-
-
-			//$draw->setViewbox(0,0,$geometry["width"]-40,$geometry["height"]);
-
-
-			$textIm=new \Imagick();
-
-			$metrics=$textIm->queryFontMetrics($draw, $this->opts["big_text"]["text"]);
-			$baseline = $metrics['boundingBox']['y2'];
-			$textwidth = $metrics['textWidth'] + 2 * $metrics['boundingBox']['x1'];
-			$textheight = $metrics['textHeight'] + $metrics['descender'];
-
-			$draw->annotation ($textwidth, $textheight, $this->opts["big_text"]["text"]);
-
-			/*print_r(array($baseline,$textwidth,$textheight));
-			print_r($metrics);
-			die();*/
-			//Сделать переносы
-
-			$textImage=new \Imagick();
-
-			$textImage->newImage($textwidth*3,$textheight*3,"none");
-			$textImage->drawImage($draw);
-			//$textImage->annotateImage($draw, $baseline, $metrics["boundingBox"]["x2"], 0, $this->opts["big_text"]["text"]);
-			if($this->opts["big_text_shadow"]) {
-				$shadow_layer = clone $textImage;
-				$shadow_layer->setImageBackgroundColor(new \ImagickPixel($this->opts["big_text_shadow"]["color"]));
-				$shadow_layer->shadowImage($this->opts["big_text_shadow"]["opacity"], $this->opts["big_text_shadow"]["sigma"], $this->opts["big_text_shadow"]["x"], $this->opts["big_text_shadow"]["y"]);
-				$shadow_layer->compositeImage($textImage, \Imagick::COMPOSITE_OVER, 0, 0);
-				$textImage=clone $shadow_layer;
-			}
-			$textImage->trimImage(0);
-			$textImage->setImagePage(0, 0, 0, 0);
-			$textGeometry=$textImage->getImageGeometry();
-
-
-			if($this->opts["big_text"]["position"]==imgGenerator::position_center_center) {
-				$x = ($geometry["width"] - $textGeometry["width"]) / 2;
-				$y = ($geometry["height"] - $textGeometry["height"]) / 2;
-			}
-			if($this->opts["big_text"]["position"]==imgGenerator::position_left_top) {
-				$x = 0 + $padding["left"];
-				$y = 0 + $padding["top"];
-			}
-			if($this->opts["big_text"]["position"]==imgGenerator::position_center_top) {
-				$x = ($geometry["width"] - $textGeometry["width"]) / 2;
-				$y = 0 + $padding["top"];
-			}
-			if($this->opts["big_text"]["position"]==imgGenerator::position_right_top) {
-				$x = $geometry["width"] - $textGeometry["width"] - $padding["right"];
-				$y = 0 + $padding["top"];
-			}
-			if($this->opts["big_text"]["position"]==imgGenerator::position_right_center) {
-				$x = $geometry["width"] - $textGeometry["width"] - $padding["right"];
-				$y = ($geometry["height"] - $textGeometry["height"]) / 2;
-			}
-			if($this->opts["big_text"]["position"]==imgGenerator::position_right_bottom) {
-				$x = $geometry["width"] - $textGeometry["width"] - $padding["left"];
-				$y = $geometry["height"] - $textGeometry["height"] - $padding["bottom"];
-			}
-			if($this->opts["big_text"]["position"]==imgGenerator::position_center_bottom) {
-				$x = ($geometry["width"] - $textGeometry["width"]) / 2;
-				$y = $geometry["height"] - $textGeometry["height"] - $padding["bottom"];
-			}
-			if($this->opts["big_text"]["position"]==imgGenerator::position_left_bottom) {
-				$x = 0 + $padding["left"];
-				$y = $geometry["height"] - $textGeometry["height"] - $padding["bottom"];
-			}
-			if($this->opts["big_text"]["position"]==imgGenerator::position_left_center) {
-				$x = 0 + $padding["left"];
-				$y = ($geometry["height"] - $textGeometry["height"]) / 2;
-			}
-
-
-			$this->im->compositeimage($textImage,\Imagick::COMPOSITE_DEFAULT,$x,$y);
-			//die();
 		}
 	}
 	function enableCache($str)
@@ -500,6 +303,14 @@ class imgGenerator
 				$this->im->compositeimage($im,\Imagick::COMPOSITE_DEFAULT,$x,$y);
 			}
 		}
+	}
+	function addText(imgTextGenerator $imgText)
+	{
+		if(!$this->opts["text"]) {
+			$this->opts["text"]=array();
+		}
+		$this->opts["text"][]=$imgText;
+		return $this;
 	}
 	function parse()
 	{
