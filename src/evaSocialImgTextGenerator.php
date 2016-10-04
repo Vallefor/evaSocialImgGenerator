@@ -78,29 +78,29 @@ class imgTextGenerator
 			$geometry=$im->getImageGeometry();
 
 			if(!is_array($this->opts["big_text"]["padding"])) {
-				if (strpos($this->opts["big_text"]["padding"], "%")) {
-					$mult = intval($this->opts["big_text"]["padding"]) / 100;
-					$this->opts["big_text"]["padding"] = intval($geometry["width"] * $mult);
-				}
-
 				$padding["left"] = $this->opts["big_text"]["padding"];
 				$padding["top"] = $this->opts["big_text"]["padding"];
 				$padding["right"] = $this->opts["big_text"]["padding"];
 				$padding["bottom"] = $this->opts["big_text"]["padding"];
 
 			} else {
-				foreach($this->opts["big_text"]["padding"] as &$val) {
-					if (strpos($val, "%")) {
-						$mult = intval($val) / 100;
-						$val = intval($geometry["width"] * $mult);
-					}
-				}
-				unset($val);
 				$padding["top"] = $this->opts["big_text"]["padding"][0];
 				$padding["right"] = $this->opts["big_text"]["padding"][1];
 				$padding["bottom"] = $this->opts["big_text"]["padding"][2];
 				$padding["left"] = $this->opts["big_text"]["padding"][3];
 			}
+
+			foreach($padding as $ind=>&$val) {
+				if (strpos($val, "%")) {
+					$mult = intval($val) / 100;
+					if($ind=="left" || $ind=="right") {
+						$val = intval($geometry["width"] * $mult);
+					} else {
+						$val = intval($geometry["height"] * $mult);
+					}
+				}
+			}
+			unset($val);
 
 			$draw=new \ImagickDraw();
 			$draw->setFont($this->opts["big_text_font"]?$this->opts["big_text_font"]:'Arial');
@@ -120,7 +120,31 @@ class imgTextGenerator
 			$draw->setFillColor(new \ImagickPixel($this->opts["big_text"]["color"]));
 			$draw->setStrokeAntialias(true);
 			$draw->setTextAntialias(true);
-			$this->opts["big_text"]["text"]=$this->splitToLines($draw,$this->opts["big_text"]["text"],$geometry["width"]-$padding["left"]-$padding["right"]);
+
+			$bgPaddings=array(0,0,0,0);
+			if($this->opts["big_text_bg"]["paddings"]) {
+				if (!is_array($this->opts["big_text_bg"]["paddings"])) {
+					$this->opts["big_text_bg"]["paddings"] = array(
+						$this->opts["big_text_bg"]["paddings"],
+						$this->opts["big_text_bg"]["paddings"],
+						$this->opts["big_text_bg"]["paddings"],
+						$this->opts["big_text_bg"]["paddings"]
+					);
+				}
+				foreach ($this->opts["big_text_bg"]["paddings"] as $pInd => &$padd) {
+					if (strpos($padd, "%")) {
+						if ($pInd == 0 || $pInd == 2) {
+							$padd = intval(intval($padd) / 100 * $geometry["height"]);
+						} else {
+							$padd = intval(intval($padd) / 100 * $geometry["width"]);
+						}
+					}
+				}
+				unset($padd);
+				$bgPaddings=$this->opts["big_text_bg"]["paddings"];
+			}
+
+			$this->opts["big_text"]["text"]=$this->splitToLines($draw,$this->opts["big_text"]["text"],$geometry["width"]-$padding["left"]-$padding["right"]-$bgPaddings[1]-$bgPaddings[3]);
 
 			if(
 				$this->opts["big_text"]["position"]==imgGenerator::position_left_top
@@ -216,15 +240,15 @@ class imgTextGenerator
 			}
 
 			if($this->opts["big_text"]["position"]==imgGenerator::position_center_center) {
-				$x = ($geometry["width"] - $textGeometry["width"]) / 2;
-				$y = ($geometry["height"] - $textGeometry["height"]) / 2;
+				$x = ($geometry["width"] - $textGeometry["width"]) / 2 + $padding["left"];
+				$y = ($geometry["height"] - $textGeometry["height"]) / 2  + $padding["top"];
 			}
 			if($this->opts["big_text"]["position"]==imgGenerator::position_left_top) {
 				$x = 0 + $padding["left"];
 				$y = 0 + $padding["top"];
 			}
 			if($this->opts["big_text"]["position"]==imgGenerator::position_center_top) {
-				$x = ($geometry["width"] - $textGeometry["width"]) / 2;
+				$x = ($geometry["width"] - $textGeometry["width"]) / 2 + $padding["left"];
 				$y = 0 + $padding["top"];
 			}
 			if($this->opts["big_text"]["position"]==imgGenerator::position_right_top) {
@@ -233,14 +257,14 @@ class imgTextGenerator
 			}
 			if($this->opts["big_text"]["position"]==imgGenerator::position_right_center) {
 				$x = $geometry["width"] - $textGeometry["width"] - $padding["right"];
-				$y = ($geometry["height"] - $textGeometry["height"]) / 2;
+				$y = ($geometry["height"] - $textGeometry["height"]) / 2 + $padding["top"];
 			}
 			if($this->opts["big_text"]["position"]==imgGenerator::position_right_bottom) {
 				$x = $geometry["width"] - $textGeometry["width"] - $padding["right"];
 				$y = $geometry["height"] - $textGeometry["height"] - $padding["bottom"];
 			}
 			if($this->opts["big_text"]["position"]==imgGenerator::position_center_bottom) {
-				$x = ($geometry["width"] - $textGeometry["width"]) / 2;
+				$x = ($geometry["width"] - $textGeometry["width"]) / 2 + $padding["left"];
 				$y = $geometry["height"] - $textGeometry["height"] - $padding["bottom"];
 			}
 			if($this->opts["big_text"]["position"]==imgGenerator::position_left_bottom) {
@@ -249,7 +273,7 @@ class imgTextGenerator
 			}
 			if($this->opts["big_text"]["position"]==imgGenerator::position_left_center) {
 				$x = 0 + $padding["left"];
-				$y = ($geometry["height"] - $textGeometry["height"]) / 2;
+				$y = ($geometry["height"] - $textGeometry["height"]) / 2 + $padding["top"];
 			}
 
 

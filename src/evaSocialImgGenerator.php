@@ -54,7 +54,7 @@ class imgGenerator
 		}
 		return $type;
 	}
-	function withoutCrop($colorOrFile,$paddings=0)
+	function withoutCrop($colorOrFile,$paddings=0,$position=imgGenerator::position_center_center)
 	{
 		if(is_file($colorOrFile)) {
 			$this->opts["without_crop"]["file"]=$colorOrFile;
@@ -62,6 +62,7 @@ class imgGenerator
 			$this->opts["without_crop"]["color"]=$colorOrFile;
 		}
 		$this->opts["without_crop"]["paddings"]=$paddings;
+		$this->opts["without_crop"]["position"]=$position;
 		return $this;
 	}
 	function resizeFor($type)
@@ -82,7 +83,8 @@ class imgGenerator
 			$this->opts["resize_and_crop"]=array("width"=>537,"height"=>240);
 		}
 		if($type=="ok") {
-			$this->opts["resize_and_crop"]=array("width"=>780,"height"=>585);
+			$this->opts["resize_and_crop"]=array("width"=>780,"height"=>385);
+			//$this->opts["resize_and_crop"]=array("width"=>780,"height"=>585);
 		}
 		return $this;
 	}
@@ -160,21 +162,92 @@ class imgGenerator
 		}
 
 		$im->resizeImage($width,$height,\Imagick::FILTER_LANCZOS,1,false);
-		/*print_r(array($this->opts["resize_and_crop"]["width"],$this->opts["resize_and_crop"]["height"],$x,$y));
-		die();*/
 		$im->cropimage($this->opts["resize_and_crop"]["width"],$this->opts["resize_and_crop"]["height"],$x,$y);
+	}
+	function getPaddings($imgGeometry,$setPaddings)
+	{
+		if(!is_array($setPaddings)) {
+			$paddings["top"]=$setPaddings;
+			$paddings["left"]=$setPaddings;
+			$paddings["right"]=$setPaddings;
+			$paddings["bottom"]=$setPaddings;
+		} else {
+			$paddings=$setPaddings;
+		}
+		foreach ($paddings as $ind=>&$val) {
+			if(strpos($val,"%")) {
+				$val=intval($val)/100;
+				if($ind=="left" || $ind=="right") {
+					$val=intval($imgGeometry["width"]*$val);
+				} else {
+					$val=intval($imgGeometry["height"]*$val);
+				}
+			}
+		}
+		unset($val);
+
+		return $paddings;
+	}
+	function getXY($imgGeometry,$itemGeometry,$paddings,$position)
+	{
+		$paddings=$this->getPaddings($imgGeometry,$paddings);
+
+		$x=0;
+		$y=0;
+		switch($position) {
+			case imgGenerator::position_left_top:
+				$x=0+$paddings["left"];
+				$y=0+$paddings["top"];
+			break;
+			case imgGenerator::position_center_top:
+				$x=($imgGeometry["width"]-$itemGeometry["width"])/2+$paddings["left"];
+				$y=0+$paddings["top"];
+			break;
+			case imgGenerator::position_right_top:
+				$x=$imgGeometry["width"]-$itemGeometry["width"]-$paddings["right"];
+				$y=0+$paddings["top"];
+			break;
+			case imgGenerator::position_right_center:
+				$x=$imgGeometry["width"]-$itemGeometry["width"]-$paddings["right"];
+				$y=($imgGeometry["height"]-$itemGeometry["height"])/2+$paddings["top"];
+			break;
+			case imgGenerator::position_right_bottom:
+				$x=$imgGeometry["width"]-$itemGeometry["width"]-$paddings["right"];
+				$y=$imgGeometry["height"]-$itemGeometry["height"]-$paddings["bottom"];
+			break;
+			case imgGenerator::position_center_bottom:
+				$x=($imgGeometry["width"]-$itemGeometry["width"])/2+$paddings["left"];
+				$y=$imgGeometry["height"]-$itemGeometry["height"]-$paddings["bottom"];
+			break;
+			case imgGenerator::position_left_bottom:
+				$x=0+$paddings["left"];
+				$y=$imgGeometry["height"]-$itemGeometry["height"]-$paddings["bottom"];
+			break;
+			case imgGenerator::position_left_center:
+				$x=0+$paddings["left"];
+				$y=($imgGeometry["height"]-$itemGeometry["height"])/2+$paddings["top"];
+			break;
+		}
+
+		return array("x"=>$x, "y"=>$y);
 	}
 	function parseSize()
 	{
 		if($this->opts["resize_and_crop"]) {
 			if($this->opts["without_crop"]) {
+				$padding=$this->getPaddings($this->opts["resize_and_crop"],$this->opts["without_crop"]["paddings"]);
 				$bgImage=new \Imagick();
 				$bgImage->newImage($this->opts["resize_and_crop"]["width"], $this->opts["resize_and_crop"]["height"],$this->opts["without_crop"]["color"]);
-				$this->im->resizeImage($this->opts["resize_and_crop"]["width"], $this->opts["resize_and_crop"]["height"],\Imagick::FILTER_LANCZOS,1,true);
+				$this->im->resizeImage(
+					$this->opts["resize_and_crop"]["width"]-$padding["left"]-$padding["right"],
+					$this->opts["resize_and_crop"]["height"]-$padding["top"]-$padding["bottom"],
+					\Imagick::FILTER_LANCZOS,1,true
+				);
 				$geometry=$this->im->getImageGeometry();
-				$x=intval(($this->opts["resize_and_crop"]["width"]-$geometry["width"])/2);
-				$y=intval(($this->opts["resize_and_crop"]["height"]-$geometry["height"])/2);
-				$bgImage->compositeImage($this->im, \Imagick::COMPOSITE_OVER, $x ,$y);
+
+				$xy=$this->getXY($this->opts["resize_and_crop"],$geometry,$this->opts["without_crop"]["paddings"],$this->opts["without_crop"]["position"]);
+
+				$bgImage->compositeImage($this->im, \Imagick::COMPOSITE_OVER, $xy["x"], $xy["y"]);
 				$this->im=$bgImage;
 			} else {
 				$this->resizeAndCrop($this->im, $this->opts["resize_and_crop"]["width"], $this->opts["resize_and_crop"]["height"]);
@@ -220,34 +293,58 @@ class imgGenerator
 
 				if($this->opts["logo"]["resize"]=="auto") {
 					$im->resizeImage(intval($geometry["width"]*0.25),intval($geometry["height"]*0.25),\Imagick::FILTER_LANCZOS,1,true);
+				} elseif(strpos($this->opts["logo"]["resize"],"x")) {
+					$wh=explode("x",$this->opts["logo"]["resize"]);
+					if(strpos($wh[0],"/")) {
+						$ex=explode("/",$wh[0]);
+						$width=$ex[0]/$ex[1]*$geometry["width"];
+					} else {
+						$width=intval($wh[0]);
+					}
+					if(strpos($wh[1],"/")) {
+						$ex=explode("/",$wh[1]);
+						$height=$ex[0]/$ex[1]*$geometry["height"];
+					} else {
+						$height=intval($wh[1]);
+					}
+					$im->resizeImage(intval($width),intval($height),\Imagick::FILTER_LANCZOS,1,true);
+
+				} elseif(strpos($this->opts["logo"]["resize"],"/")) {
+					$ex=explode("/",$this->opts["logo"]["resize"]);
+					$width=$ex[0]/$ex[1]*$geometry["width"];
+					$height=$ex[0]/$ex[1]*$geometry["height"];
+					$im->resizeImage(intval($width),intval($height),\Imagick::FILTER_LANCZOS,1,true);
 				}
 
 				$logoGemetry=$im->getImageGeometry();
 
 				if(!is_array($this->opts["logo"]["padding"])) {
-					if (strpos($this->opts["logo"]["padding"], "%")) {
+					/*if (strpos($this->opts["logo"]["padding"], "%")) {
 						$mult = intval($this->opts["logo"]["padding"]) / 100;
 						$this->opts["logo"]["padding"] = intval($geometry["width"] * $mult);
-					}
+					}*/
 
 					$padding["left"] = $this->opts["logo"]["padding"];
 					$padding["top"] = $this->opts["logo"]["padding"];
 					$padding["right"] = $this->opts["logo"]["padding"];
 					$padding["bottom"] = $this->opts["logo"]["padding"];
 				} else {
-					foreach($this->opts["logo"]["padding"] as &$val) {
-						if (strpos($val, "%")) {
-							$mult = intval($val) / 100;
-							$val = intval($geometry["width"] * $mult);
-						}
-					}
-					unset($val);
 					$padding["top"] = $this->opts["logo"]["padding"][0];
 					$padding["right"] = $this->opts["logo"]["padding"][1];
 					$padding["bottom"] = $this->opts["logo"]["padding"][2];
 					$padding["left"] = $this->opts["logo"]["padding"][3];
-
 				}
+				foreach($padding as $ind=>&$val) {
+					if (strpos($val, "%")) {
+						$mult = intval($val) / 100;
+						if($ind=="left" || $ind=="right") {
+							$val = intval($geometry["width"] * $mult);
+						} else {
+							$val = intval($geometry["height"] * $mult);
+						}
+					}
+				}
+				unset($val);
 
 				if(
 					$this->opts["logo"]["position"] == $this::position_left_top ||
@@ -284,20 +381,22 @@ class imgGenerator
 					$this->opts["logo"]["position"] == $this::position_center_bottom ||
 					$this->opts["logo"]["position"] == $this::position_center_top
 				) {
-					$x=($geometry["width"]-$logoGemetry["width"])/2;
+					$x=($geometry["width"]-$logoGemetry["width"])/2+$padding["left"];
 				}
 				if(
 					$this->opts["logo"]["position"] == $this::position_center_center ||
 					$this->opts["logo"]["position"] == $this::position_left_center ||
 					$this->opts["logo"]["position"] == $this::position_right_center
 				) {
-					$y=($geometry["height"]-$logoGemetry["height"])/2;
+					$y=($geometry["height"]-$logoGemetry["height"])/2+$padding["top"];
 				}
 
-				/*print_r(array($x,$y));
-				die();*/
 				if($this->opts["logo"]["opacity"]) {
-					$im->setImageOpacity($this->opts["logo"]["opacity"]);
+					$im->setImageFormat("png");
+					if($im->getImageFormat()!="png") {
+						$im->setImageOpacity(255);
+					}
+					$im->evaluateImage(\Imagick::EVALUATE_MULTIPLY, $this->opts["logo"]["opacity"], \Imagick::CHANNEL_ALPHA);
 				}
 
 				$this->im->compositeimage($im,\Imagick::COMPOSITE_DEFAULT,$x,$y);
@@ -344,15 +443,15 @@ class imgGenerator
 	}
 	function getPath()
 	{
-		$this->parse();
-
-		$this->im->setimageformat("jpg");
 		$fileName=md5(serialize($this->opts));
 		$file="{$this->opts["enable_cache"]}/{$fileName}.jpg";
 		//unlink($_SERVER["DOCUMENT_ROOT"]."/upload/social_images/{$fileName}.png");
 		if(is_file($file)) {
 			return str_replace($_SERVER["DOCUMENT_ROOT"],"",$file);
 		}
+
+		$this->parse();
+		$this->im->setimageformat("jpg");
 		$this->im->writeimage("{$this->opts["enable_cache"]}/{$fileName}.jpg");
 
 		return str_replace($_SERVER["DOCUMENT_ROOT"],"",$file);
