@@ -12,6 +12,19 @@ class imgTextGenerator
 {
 	protected $opts=array();
 
+	function __construct()
+	{
+		$this->opts["big_text"]=array(
+			"text"=>"",
+			"color"=>"#ffffff",
+			"position"=>imgGenerator::position_center_center,
+			"font_size"=>50,
+			"padding"=>20,
+			"style"=>\Imagick::STYLE_NORMAL,
+			"weight"=>300,
+		);
+	}
+
 	function seTextShadow($color="#000000",$opacity=75,$sigma=5,$x=5,$y=5)
 	{
 		$this->opts["big_text_shadow"]=array("color"=>$color,"opacity"=>$opacity,"sigma"=>$sigma,"x"=>$x,"y"=>$y);
@@ -28,7 +41,41 @@ class imgTextGenerator
 		$this->opts["big_text_font"]=$font;
 		return $this;
 	}
-
+	function setCaption($str)
+	{
+		$this->opts["big_text"]["text"]=$str;
+		return $this;
+	}
+	function setCaptionColor($color)
+	{
+		$this->opts["big_text"]["color"]=$color;
+		return $this;
+	}
+	function setCaptionPosition($position)
+	{
+		$this->opts["big_text"]["position"]=$position;
+		return $this;
+	}
+	function setCaptionFontSize($fontSize)
+	{
+		$this->opts["big_text"]["font_size"]=$fontSize;
+		return $this;
+	}
+	function setCaptionPadding($padding)
+	{
+		$this->opts["big_text"]["padding"]=$padding;
+		return $this;
+	}
+	function setCaptionFontStyle($style)
+	{
+		$this->opts["big_text"]["style"]=$style;
+		return $this;
+	}
+	function setCaptionFontWeight($weight)
+	{
+		$this->opts["big_text"]["weight"]=$weight;
+		return $this;
+	}
 	/**
 	 * Добавляет текст на картинку.
 	 *
@@ -240,8 +287,8 @@ class imgTextGenerator
 			}
 
 			if($this->opts["big_text"]["position"]==imgGenerator::position_center_center) {
-				$x = ($geometry["width"] - $textGeometry["width"]) / 2 + $padding["left"];
-				$y = ($geometry["height"] - $textGeometry["height"]) / 2  + $padding["top"];
+				$x = ($geometry["width"] - $textGeometry["width"]) / 2 + $padding["left"]-$padding["right"];
+				$y = ($geometry["height"] - $textGeometry["height"]) / 2  + $padding["top"]-$padding["top"];
 			}
 			if($this->opts["big_text"]["position"]==imgGenerator::position_left_top) {
 				$x = 0 + $padding["left"];
